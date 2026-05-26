@@ -327,6 +327,40 @@ impl SubscriptionManager {
         })
     }
 
+    /// Subscribe to public market data channel without asset-id filtering.
+    ///
+    /// Returns the raw stream of [`WsMessage`] events on the market channel,
+    /// including `new_market` events for markets whose asset IDs are not yet
+    /// known to the caller. Useful for market discovery.
+    ///
+    /// Does not send a subscription request to the server — relies on another
+    /// market subscription on this channel being already active. For custom
+    /// message types (`best_bid_ask`, `new_market`, `market_resolved`), that
+    /// other subscription must have been created with `custom_features = true`.
+    pub fn subscribe_market_unfiltered(
+        &self,
+    ) -> Result<impl Stream<Item = Result<WsMessage>> + use<>> {
+        self.interest.add(MessageInterest::MARKET);
+        self.custom_features_enabled.store(true, Ordering::Relaxed);
+
+        let mut rx = self.connection.subscribe();
+
+        Ok(try_stream! {
+            loop {
+                match rx.recv().await {
+                    Ok(msg) => yield msg,
+                    Err(RecvError::Lagged(_n)) => {
+                        #[cfg(feature = "tracing")]
+                        tracing::warn!(
+                            "Unfiltered market subscription lagged, missed {_n} messages — continuing"
+                        );
+                    }
+                    Err(RecvError::Closed) => break,
+                }
+            }
+        })
+    }
+
     /// Subscribe to authenticated user channel.
     pub fn subscribe_user(
         &self,

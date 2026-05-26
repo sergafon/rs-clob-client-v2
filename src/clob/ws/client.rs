@@ -336,6 +336,37 @@ impl<S: State> Client<S> {
         }))
     }
 
+    /// Subscribe to all `new_market` events on the market channel without
+    /// asset-id filtering.
+    ///
+    /// Unlike [`subscribe_new_markets`](Self::subscribe_new_markets), this
+    /// does not require a list of known asset IDs and yields events for any
+    /// newly created market — useful for real-time market discovery.
+    ///
+    /// Requires that another market subscription on the same channel has
+    /// enabled `custom_features` (e.g. via
+    /// [`subscribe_market_resolutions`](Self::subscribe_market_resolutions)
+    /// or [`subscribe_best_bid_ask`](Self::subscribe_best_bid_ask));
+    /// otherwise the server will not broadcast `new_market` events to this
+    /// channel.
+    pub fn subscribe_new_markets_unfiltered(
+        &self,
+    ) -> Result<impl Stream<Item = Result<NewMarket>> + use<S>> {
+        let stream = self
+            .inner
+            .get_or_create_channel(ChannelType::Market)?
+            .subscriptions
+            .subscribe_market_unfiltered()?;
+
+        Ok(stream.filter_map(|msg_result| async move {
+            match msg_result {
+                Ok(WsMessage::NewMarket(nm)) => Some(Ok(nm)),
+                Err(e) => Some(Err(e)),
+                _ => None,
+            }
+        }))
+    }
+
     /// Subscribe to market resolved events with custom features enabled.
     ///
     /// Requires `custom_features_enabled` flag on the server side.
