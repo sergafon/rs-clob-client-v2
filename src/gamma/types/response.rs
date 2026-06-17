@@ -337,6 +337,17 @@ pub struct Event {
 }
 
 /// A prediction market.
+/// Fee schedule applied to a market.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Builder)]
+#[serde(rename_all = "camelCase")]
+#[non_exhaustive]
+pub struct FeeSchedule {
+    pub exponent: Option<i32>,
+    pub rate: Option<Decimal>,
+    pub rebate_rate: Option<Decimal>,
+    pub taker_only: Option<bool>,
+}
+
 #[serde_as]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Builder)]
 #[serde(rename_all = "camelCase")]
@@ -444,6 +455,8 @@ pub struct Market {
     pub maker_base_fee: Option<i32>,
     pub taker_base_fee: Option<i32>,
     pub maker_rebates_fee_share_bps: Option<i32>,
+    pub fee_schedule: Option<FeeSchedule>,
+    pub fee_type: Option<String>,
     pub custom_liveness: Option<i32>,
     pub accepting_orders: Option<bool>,
     pub notifications_enabled: Option<bool>,
