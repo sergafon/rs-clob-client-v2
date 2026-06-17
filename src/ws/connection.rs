@@ -286,6 +286,11 @@ where
                                 WsError::Connection(e),
                             ));
                         }
+                        Ok(Message::Ping(payload)) => {
+                            if write.send(Message::Pong(payload)).await.is_err() {
+                                break;
+                            }
+                        }
                         _ => {
                             // Ignore binary frames and unsolicited PONG replies.
                         }
