@@ -13,20 +13,6 @@ const DEFAULT_INITIAL_BACKOFF_DURATION: Duration = Duration::from_secs(1);
 const DEFAULT_MAX_BACKOFF_DURATION: Duration = Duration::from_secs(60);
 const DEFAULT_BACKOFF_MULTIPLIER: f64 = 2.0;
 
-/// Keepalive strategy for a WebSocket channel.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Keepalive {
-    /// Send text `"PING"` frames and expect text `"PONG"` replies.
-    ///
-    /// Used by the Polymarket market channel (`/ws/market`).
-    TextPing,
-    /// Rely solely on native WebSocket ping/pong control frames.
-    ///
-    /// The Polymarket user channel (`/ws/user`) drops the connection on
-    /// receiving a text `"PING"`, so text keepalive must not be sent there.
-    NativeOnly,
-}
-
 /// Configuration for WebSocket client behavior.
 #[non_exhaustive]
 #[derive(Debug, Clone)]
@@ -37,8 +23,6 @@ pub struct Config {
     pub heartbeat_timeout: Duration,
     /// Reconnection strategy configuration
     pub reconnect: ReconnectConfig,
-    /// Keepalive strategy for the connection
-    pub keepalive: Keepalive,
 }
 
 impl Default for Config {
@@ -47,7 +31,6 @@ impl Default for Config {
             heartbeat_interval: DEFAULT_HEARTBEAT_INTERVAL_DURATION,
             heartbeat_timeout: DEFAULT_HEARTBEAT_TIMEOUT_DURATION,
             reconnect: ReconnectConfig::default(),
-            keepalive: Keepalive::TextPing,
         }
     }
 }

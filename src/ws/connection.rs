@@ -16,7 +16,7 @@ use tokio::sync::{broadcast, mpsc, watch};
 use tokio::time::{interval, sleep, timeout};
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async, tungstenite::Message};
 
-use super::config::{Config, Keepalive};
+use super::config::Config;
 use super::error::WsError;
 use super::traits::MessageParser;
 use crate::auth::Credentials;
@@ -248,9 +248,6 @@ where
                 // Handle incoming messages
                 Some(msg) = read.next() => {
                     match msg {
-                        Ok(Message::Text(text)) if text == "PONG" => {
-                            _ = pong_tx.send(Instant::now());
-                        }
                         Ok(Message::Text(text)) => {
                             #[cfg(feature = "tracing")]
                             tracing::trace!(%text, "Received WebSocket text message");
@@ -291,8 +288,11 @@ where
                                 break;
                             }
                         }
+                        Ok(Message::Pong(_)) => {
+                            _ = pong_tx.send(Instant::now());
+                        }
                         _ => {
-                            // Ignore binary frames and unsolicited PONG replies.
+                            // Ignore binary frames.
                         }
                     }
                 }
@@ -306,7 +306,7 @@ where
 
                 // Handle PING requests from heartbeat loop
                 Some(()) = ping_rx.recv() => {
-                    if write.send(Message::Text("PING".into())).await.is_err() {
+                    if write.send(Message::Ping(Default::default())).await.is_err() {
                         break;
                     }
                 }
@@ -331,10 +331,6 @@ where
         config: &Config,
         mut pong_rx: watch::Receiver<Instant>,
     ) {
-        if config.keepalive != Keepalive::TextPing {
-            return;
-        }
-
         let mut ping_interval = interval(config.heartbeat_interval);
 
         loop {
