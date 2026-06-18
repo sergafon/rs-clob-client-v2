@@ -13,7 +13,7 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 use tokio::net::TcpStream;
 use tokio::sync::{broadcast, mpsc, watch};
-use tokio::time::{interval, sleep, timeout};
+use tokio::time::{interval_at, sleep, timeout};
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async, tungstenite::Message};
 
 use super::config::Config;
@@ -248,6 +248,9 @@ where
                 // Handle incoming messages
                 Some(msg) = read.next() => {
                     match msg {
+                        Ok(Message::Text(text)) if text == "PONG" => {
+                            _ = pong_tx.send(Instant::now());
+                        }
                         Ok(Message::Text(text)) => {
                             #[cfg(feature = "tracing")]
                             tracing::trace!(%text, "Received WebSocket text message");
@@ -291,9 +294,7 @@ where
                         Ok(Message::Pong(_)) => {
                             _ = pong_tx.send(Instant::now());
                         }
-                        _ => {
-                            // Ignore binary frames.
-                        }
+                        _ => {}
                     }
                 }
 
@@ -307,6 +308,9 @@ where
                 // Handle PING requests from heartbeat loop
                 Some(()) = ping_rx.recv() => {
                     if write.send(Message::Ping(Default::default())).await.is_err() {
+                        break;
+                    }
+                    if write.send(Message::Text("PING".into())).await.is_err() {
                         break;
                     }
                 }
@@ -331,7 +335,8 @@ where
         config: &Config,
         mut pong_rx: watch::Receiver<Instant>,
     ) {
-        let mut ping_interval = interval(config.heartbeat_interval);
+        let first_tick = tokio::time::Instant::now() + config.heartbeat_interval;
+        let mut ping_interval = interval_at(first_tick, config.heartbeat_interval);
 
         loop {
             ping_interval.tick().await;
