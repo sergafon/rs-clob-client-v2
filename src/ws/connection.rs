@@ -192,7 +192,7 @@ where
                     .await
                     {
                         #[cfg(feature = "tracing")]
-                        tracing::error!("Error handling connection: {e:?}");
+                        tracing::warn!("WebSocket connection reset, reconnecting: {e}");
                         #[cfg(not(feature = "tracing"))]
                         let _: &_ = &e;
                     }
