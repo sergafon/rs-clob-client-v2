@@ -16,7 +16,7 @@ use tokio::sync::{broadcast, mpsc, watch};
 use tokio::time::{interval, sleep, timeout};
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async, tungstenite::Message};
 
-use super::config::Config;
+use super::config::{Config, Keepalive};
 use super::error::WsError;
 use super::traits::MessageParser;
 use crate::auth::Credentials;
@@ -331,6 +331,10 @@ where
         config: &Config,
         mut pong_rx: watch::Receiver<Instant>,
     ) {
+        if config.keepalive != Keepalive::TextPing {
+            return;
+        }
+
         let mut ping_interval = interval(config.heartbeat_interval);
 
         loop {

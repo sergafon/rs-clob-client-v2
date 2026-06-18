@@ -18,7 +18,7 @@ use crate::auth::{Credentials, Kind as AuthKind, Normal};
 use crate::error::Error;
 use crate::types::{Address, B256, Decimal, U256};
 use crate::ws::ConnectionManager;
-use crate::ws::config::Config;
+use crate::ws::config::{Config, Keepalive};
 use crate::ws::connection::ConnectionState;
 
 /// WebSocket client for real-time market data and user updates.
@@ -613,7 +613,12 @@ impl<S: State> ClientInner<S> {
             .entry(channel_type)
             .or_try_insert_with(|| {
                 let endpoint = channel_endpoint(&self.base_endpoint, channel_type);
-                ChannelResources::new(endpoint, self.config.clone())
+                let mut config = self.config.clone();
+                config.keepalive = match channel_type {
+                    ChannelType::Market => Keepalive::TextPing,
+                    ChannelType::User => Keepalive::NativeOnly,
+                };
+                ChannelResources::new(endpoint, config)
             })
             .map(RefMut::downgrade)
     }
