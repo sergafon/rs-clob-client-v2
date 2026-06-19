@@ -334,6 +334,16 @@ pub struct Event {
     pub cumulative_markets: Option<bool>,
     pub away_team_name: Option<String>,
     pub home_team_name: Option<String>,
+    pub event_metadata: Option<EventMetadata>,
+}
+
+/// Metadata describing an event's target and final outcome prices.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Builder)]
+#[serde(rename_all = "camelCase")]
+#[non_exhaustive]
+pub struct EventMetadata {
+    pub price_to_beat: Option<Decimal>,
+    pub final_price: Option<Decimal>,
 }
 
 /// A prediction market.
