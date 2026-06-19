@@ -528,6 +528,7 @@ pub struct Market {
     pub clob_rewards: Option<Vec<ClobReward>>,
     pub category_mailchimp_tag: Option<String>,
     pub subcategory: Option<String>,
+    pub combo_status: Option<String>,
 }
 
 /// CLOB rewards configuration for a market.
