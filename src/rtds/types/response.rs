@@ -171,8 +171,25 @@ pub fn parse_messages(bytes: &[u8]) -> crate::Result<Vec<RtdsMessage>> {
     if trimmed.first() == Some(&b'[') {
         Ok(serde_json::from_slice(trimmed)?)
     } else {
-        let msg: RtdsMessage = serde_json::from_slice(trimmed)?;
-        Ok(vec![msg])
+        match serde_json::from_slice::<RtdsMessage>(trimmed) {
+            Ok(msg) => Ok(vec![msg]),
+            Err(error) => {
+                // Server control frames (e.g. rate-limit "Too Many Requests")
+                // are plain objects without a `topic`; skip them instead of
+                // failing, but re-raise anything that is genuinely malformed.
+                match serde_json::from_slice::<Value>(trimmed) {
+                    Ok(value) if value.get("topic").is_none() => {
+                        #[cfg(feature = "tracing")]
+                        tracing::debug!(
+                            frame = %String::from_utf8_lossy(trimmed),
+                            "Skipping non-data RTDS control frame"
+                        );
+                        Ok(Vec::new())
+                    }
+                    _ => Err(error.into()),
+                }
+            }
+        }
     }
 }
 
@@ -299,5 +316,18 @@ mod tests {
     fn parse_whitespace_only_input() {
         let msgs = parse_messages(b"   \n\t  ").unwrap();
         assert!(msgs.is_empty());
+    }
+
+    #[test]
+    fn skips_control_frame_without_topic() {
+        let json = r#"{"message": "Too Many Requests", "connectionId": "abc==", "requestId": "def="}"#;
+        let msgs = parse_messages(json.as_bytes()).unwrap();
+        assert!(msgs.is_empty());
+    }
+
+    #[test]
+    fn errors_on_malformed_data_with_topic() {
+        let json = r#"{"topic": "crypto_prices", "type": "update"}"#;
+        assert!(parse_messages(json.as_bytes()).is_err());
     }
 }
