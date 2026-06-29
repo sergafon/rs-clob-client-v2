@@ -3,7 +3,6 @@ use std::marker::PhantomData;
 use std::mem;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
-#[cfg(feature = "heartbeats")]
 use std::time::Duration;
 
 use alloy::dyn_abi::Eip712Domain;
@@ -441,6 +440,12 @@ impl Default for Config {
 
 /// The default geoblock API host (separate from CLOB host)
 const DEFAULT_GEOBLOCK_HOST: &str = "https://polymarket.com";
+
+/// Connection establishment timeout for the inner HTTP client.
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// Total per-request timeout for the inner HTTP client.
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[derive(Debug)]
 struct ClientInner<S: State> {
@@ -1471,7 +1476,11 @@ impl Client<Unauthenticated> {
         headers.insert("Connection", HeaderValue::from_static("keep-alive"));
         headers.insert("Content-Type", HeaderValue::from_static("application/json"));
 
-        let client = ReqwestClient::builder().default_headers(headers).build()?;
+        let client = ReqwestClient::builder()
+            .default_headers(headers)
+            .connect_timeout(CONNECT_TIMEOUT)
+            .timeout(REQUEST_TIMEOUT)
+            .build()?;
 
         let geoblock_host = Url::parse(
             config
